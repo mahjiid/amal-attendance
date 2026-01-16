@@ -163,6 +163,12 @@ export default function StaffLoginPage() {
                     Sign up
                 </Link>
             </div>
+            <div className="text-xs">
+                Forgot your password?
+                <Link href="/auth/forgot-password" className="ml-1 text-primary hover:underline font-medium">
+                    Reset it here
+                </Link>
+            </div>
             <Link href="/" className="hover:text-primary transition-colors">
                ← Back to Home
             </Link>

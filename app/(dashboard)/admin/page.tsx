@@ -199,8 +199,8 @@ export default function AdminPage() {
                  )}
                  {employees.map((employee) => (
                     <div key={employee.id} className="grid grid-cols-5 p-4 items-center hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 group">
-                       <div className="font-mono text-xs text-muted-foreground truncate" title={employee.id}>
-                           AMT-{employee.id.slice(0, 4)}...
+                       <div className="font-mono text-xs text-muted-foreground truncate" title={String(employee.id)}>
+                           AMT-{String(employee.id).slice(0, 8)}
                        </div>
                        <div className="col-span-1">
                          <div className="font-medium text-foreground">{employee.full_name}</div>

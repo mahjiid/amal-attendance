@@ -6,23 +6,19 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
-  const next = searchParams.get('next') ?? '/auth/login'
+  
+  // Determine redirect based on type
+  let next = searchParams.get('next')
+  if (!next) {
+    // If it's a password recovery, go to reset page
+    // Otherwise go to login
+    next = type === 'recovery' ? '/auth/reset-password' : '/auth/login'
+  }
 
   // Standard PKCE code exchange or Token Hash exchange
   // Supabase links usually look like: /?token_hash=...&type=signup&next=...
   
   if (token_hash && type) {
-    const cookieStore = {
-        getAll: () => [],
-        set: () => {}
-    } // Pseudo store, we need real cookies from request
-    
-    // We need to use standard createServerClient with cookie handling
-    // Copying standard pattern or importing from utils if available.
-    // Let's rely on manual construction to be safe in this scope or strict import.
-    // Actually, I should use the utils/supabase/server if it supports context.
-    // But route handlers need independent cookie handling usually.
-    
     const response = NextResponse.next({
       request: {
         headers: request.headers,

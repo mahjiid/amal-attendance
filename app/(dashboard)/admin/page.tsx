@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, FileText, Upload, Download, Plus } from "lucide-react";
+import { Users, FileText, Upload, Download, Plus, Camera } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
+import { useToast, ToastContainer } from "@/components/ui/toast";
 
 // Interface matching Supabase employees table
 interface Employee {
@@ -19,8 +21,11 @@ interface Employee {
 
 export default function AdminPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [pendingRequests, setPendingRequests] = useState(0);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const router = useRouter();
+  const { toasts, toast, dismiss } = useToast();
 
   const fetchEmployees = async () => {
     const { data, error } = await supabase
@@ -31,6 +36,13 @@ export default function AdminPage() {
     if (data) {
         setEmployees(data as Employee[]);
     }
+
+    const { count } = await supabase
+        .from('leave_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'Pending');
+    setPendingRequests(count || 0);
+
     setLoading(false);
   };
 
@@ -38,8 +50,42 @@ export default function AdminPage() {
     fetchEmployees();
   }, []);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    alert("CSV Import is currently disabled while validating with Supabase.");
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    const text = await file.text();
+    const rows = text.split('\n').slice(1); // skip header
+    
+    const users = rows.map(row => {
+      const [id, full_name, role, department, email] = row.split(',');
+      return { full_name, role, department, email: email?.trim() };
+    }).filter(u => u.email && u.full_name);
+
+    if (users.length === 0) {
+      toast("error", "Import Failed", "No valid users found in CSV.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users }),
+      });
+      const result = await response.json();
+      
+      if (!response.ok) throw new Error(result.error || 'Failed to import CSV');
+      
+      const successCount = result.results.filter((r: any) => r.success).length;
+      toast("success", "Import Complete", `Successfully imported ${successCount} out of ${users.length} users.`);
+      fetchEmployees();
+    } catch (err: any) {
+      toast("error", "Import Failed", err.message);
+    }
+    setLoading(false);
   };
 
   const downloadTemplate = () => {
@@ -53,19 +99,53 @@ export default function AdminPage() {
       a.click();
   };
 
-  const [newEmpId, setNewEmpId] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [newEmpEmail, setNewEmpEmail] = useState("");
   const [newEmpName, setNewEmpName] = useState("");
   const [newEmpRole, setNewEmpRole] = useState("");
   const [newEmpDept, setNewEmpDept] = useState("Factory");
 
-  const handleAddManual = () => {
-      alert("To add a new staff member, please use the 'Sign Up' page to create their account and profile simultaneously.\n\n(Admin creation of users requires Service Role permissions which are not currently configured).");
-      setIsAdding(false);
+  const handleAddManual = async () => {
+      if (!newEmpEmail || !newEmpName || !newEmpRole || !newEmpDept) {
+        toast("error", "Validation Error", "Please fill out all fields.");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const response = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ users: [{
+            email: newEmpEmail,
+            full_name: newEmpName,
+            role: newEmpRole,
+            department: newEmpDept
+          }] }),
+        });
+        const result = await response.json();
+        
+        if (!response.ok) throw new Error(result.error || 'Failed to create user');
+        
+        if (result.results[0].success) {
+           toast("success", "User Created", `${newEmpName} has been added successfully.`);
+           setIsAdding(false);
+           setNewEmpEmail("");
+           setNewEmpName("");
+           setNewEmpRole("");
+           fetchEmployees();
+        } else {
+           throw new Error(result.results[0].error);
+        }
+      } catch (err: any) {
+        toast("error", "Creation Failed", err.message);
+      }
+      setLoading(false);
   };
 
   return (
     <div className="space-y-6">
+       <ToastContainer toasts={toasts} onDismiss={dismiss} />
        {/* ... Header and Stats ... */}
        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
          <div>
@@ -73,6 +153,12 @@ export default function AdminPage() {
             <p className="text-muted-foreground">Manage employees and system settings.</p>
          </div>
          <div className="flex gap-2">
+            <Button 
+              onClick={() => router.push('/admin/photos')}
+              className="gap-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
+            >
+                <Camera className="h-4 w-4" /> Photo Enrollment
+            </Button>
             <Button variant="outline" onClick={downloadTemplate} className="gap-2">
                 <Download className="h-4 w-4" /> Template
             </Button>
@@ -123,7 +209,7 @@ export default function AdminPage() {
               <FileText className="h-4 w-4 text-secondary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">2</div>
+              <div className="text-2xl font-bold">{pendingRequests}</div>
             </CardContent>
           </Card>
        </div>
@@ -150,12 +236,12 @@ export default function AdminPage() {
                  {isAdding && (
                     <div className="grid grid-cols-5 p-4 items-center bg-primary/5 border-b border-primary/20 animate-in slide-in-from-top-2">
                        <div className="font-mono text-xs text-muted-foreground flex items-center gap-1">
-                           <span className="text-muted-foreground/50">AMT-</span>
                            <input 
-                              type="number"
-                              className="w-16 bg-background border border-primary/30 rounded px-1 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary font-mono text-foreground"
-                              value={newEmpId}
-                              onChange={(e) => setNewEmpId(e.target.value)}
+                              type="email"
+                              placeholder="Email Address"
+                              className="w-full bg-background border border-primary/30 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary font-mono text-foreground"
+                              value={newEmpEmail}
+                              onChange={(e) => setNewEmpEmail(e.target.value)}
                            />
                        </div>
                        <div className="col-span-1 space-y-2">

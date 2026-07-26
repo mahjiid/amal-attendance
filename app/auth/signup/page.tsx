@@ -9,6 +9,7 @@ import { Lock, Mail, User, Loader2, AlertCircle, ArrowRight } from "lucide-react
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { useToast, ToastContainer } from "@/components/ui/toast";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -20,6 +21,7 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const router = useRouter();
   const supabase = createClient();
+  const { toasts, toast, dismiss } = useToast();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,8 +64,10 @@ export default function SignupPage() {
           }
       }
 
-      alert("Account created! Please log in.");
-      router.push("/auth/login");
+      toast("success", "Account Created!", "Redirecting to login...");
+      setTimeout(() => {
+        router.push("/auth/login");
+      }, 2000);
 
     } catch (err: any) {
       setError(err.message);
@@ -74,6 +78,7 @@ export default function SignupPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[80vh]">
+       <ToastContainer toasts={toasts} onDismiss={dismiss} />
        <Card className="w-full max-w-md border-primary/20 bg-card/50 backdrop-blur-sm shadow-2xl">
          <CardHeader className="space-y-1 text-center">
            <CardTitle className="text-2xl font-bold tracking-tight">Create Account</CardTitle>

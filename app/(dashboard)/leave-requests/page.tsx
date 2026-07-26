@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar, Plus, Check, X, FileText, User, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
+import { useToast, ToastContainer } from "@/components/ui/toast";
 
 interface LeaveRequest {
   id: string; // UUID
@@ -30,6 +31,7 @@ export default function LeaveRequestsPage() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const { toasts, toast, dismiss } = useToast();
   
   const [newLeave, setNewLeave] = useState({
      userId: "",
@@ -77,8 +79,9 @@ export default function LeaveRequestsPage() {
     }).select();
 
     if (error) {
-        alert("Error creating leave request: " + error.message);
+        toast("error", "Submission Failed", error.message);
     } else {
+        toast("success", "Leave Logged", "The leave request has been recorded successfully.");
         // Refresh to get the join
         fetchData();
         setShowForm(false);
@@ -96,13 +99,14 @@ export default function LeaveRequestsPage() {
         .eq('id', id);
 
       if (error) {
-          alert("Error updating status: " + error.message);
+          toast("error", "Update Failed", error.message);
           fetchData(); // Revert on error
       }
   };
 
   return (
     <div className="space-y-6">
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Leave Management</h1>

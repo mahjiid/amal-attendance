@@ -11,8 +11,9 @@ export async function GET(request: NextRequest) {
   let next = searchParams.get('next')
   if (!next) {
     // If it's a password recovery, go to reset page
+    // If it's signup/email confirmation, show confirmation page first
     // Otherwise go to login
-    next = type === 'recovery' ? '/auth/reset-password' : '/auth/login'
+    next = type === 'recovery' ? '/auth/reset-password' : '/auth/confirmed'
   }
 
   // Standard PKCE code exchange or Token Hash exchange
@@ -62,5 +63,5 @@ export async function GET(request: NextRequest) {
   }
 
   // General Error / Fallback
-  return NextResponse.redirect(new URL('/auth/login?error=verification_failed', request.url))
+  return NextResponse.redirect(new URL('/auth/confirmed?error=verification_failed', request.url))
 }

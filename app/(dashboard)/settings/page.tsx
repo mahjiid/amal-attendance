@@ -4,21 +4,67 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, Bell, Lock, Shield } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@/utils/supabase/client";
+import { useToast, ToastContainer } from "@/components/ui/toast";
 
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const supabase = createClient();
+  const { toasts, toast, dismiss } = useToast();
 
-  const handleSave = () => {
+  useEffect(() => {
+     const fetchProfile = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const { data: profile } = await supabase
+           .from('employees')
+           .select('*')
+           .eq('id', user.id)
+           .single();
+           
+        if (profile) setUserProfile(profile);
+     };
+     fetchProfile();
+  }, []);
+
+  const handleSave = async () => {
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
+
+    if (newPass || confirmPass) {
+       if (newPass !== confirmPass) {
+          toast("error", "Validation Error", "New passwords do not match.");
+          setIsLoading(false);
+          return;
+       }
+       if (newPass.length < 6) {
+          toast("error", "Validation Error", "Password must be at least 6 characters.");
+          setIsLoading(false);
+          return;
+       }
+
+       const { error } = await supabase.auth.updateUser({ password: newPass });
+       if (error) {
+          toast("error", "Update Failed", error.message);
+       } else {
+          toast("success", "Password Updated", "Your password has been changed successfully.");
+          setNewPass("");
+          setConfirmPass("");
+       }
+    } else {
+       toast("success", "Settings Saved", "Your preferences have been updated.");
+    }
+    
+    setIsLoading(false);
   };
 
   return (
     <div className="space-y-6 max-w-4xl">
+       <ToastContainer toasts={toasts} onDismiss={dismiss} />
        <div>
          <h1 className="text-3xl font-bold tracking-tight glow-text">Settings</h1>
          <p className="text-muted-foreground">Manage your account preferences and application settings.</p>
@@ -38,19 +84,19 @@ export default function SettingsPage() {
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" defaultValue="Farouq Ayanlowo" />
+                    <Input id="name" defaultValue={userProfile?.full_name || "Loading..."} disabled />
                  </div>
                  <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" defaultValue="farouq.a@amaltech.com" disabled />
+                    <Input id="email" defaultValue={userProfile?.email || "Loading..."} disabled />
                  </div>
                  <div className="space-y-2">
                     <Label htmlFor="role">Role</Label>
-                    <Input id="role" defaultValue="Embedded & Hardware Engineer" disabled />
+                    <Input id="role" defaultValue={userProfile?.role || "Loading..."} disabled />
                  </div>
                  <div className="space-y-2">
                     <Label htmlFor="dept">Department</Label>
-                    <Input id="dept" defaultValue="Engineering" disabled />
+                    <Input id="dept" defaultValue={userProfile?.department || "Loading..."} disabled />
                  </div>
                </div>
             </CardContent>
@@ -100,11 +146,11 @@ export default function SettingsPage() {
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div className="space-y-2">
                     <Label htmlFor="new-pass">New Password</Label>
-                    <Input id="new-pass" type="password" />
+                    <Input id="new-pass" type="password" value={newPass} onChange={e => setNewPass(e.target.value)} />
                  </div>
                  <div className="space-y-2">
                     <Label htmlFor="confirm-pass">Confirm Password</Label>
-                    <Input id="confirm-pass" type="password" />
+                    <Input id="confirm-pass" type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} />
                  </div>
                </div>
             </CardContent>

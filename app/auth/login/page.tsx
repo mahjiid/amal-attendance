@@ -28,32 +28,48 @@ export default function StaffLoginPage() {
     const password = (document.getElementById("password") as HTMLInputElement).value;
 
     try {
-        const { data: { user }, error } = await supabase.auth.signInWithPassword({
+        console.log("Auth: Attempting login for", email);
+        const { data: { user }, error: authError } = await supabase.auth.signInWithPassword({
             email,
             password
         });
-        if (error) throw error;
+        
+        if (authError) {
+            console.error("Auth: Login failed", authError);
+            setError(authError.message || "Login failed. Please check your credentials.");
+            setIsLoading(false);
+            return;
+        }
         
         // Fetch user role
         if (user && user.email) {
-            const { data: emp } = await supabase
+            console.log("Auth: Success, fetching role for", user.email);
+            const { data: emp, error: empError } = await supabase
                 .from('employees')
                 .select('role')
                 .eq('email', user.email)
                 .single();
             
+            if (empError) {
+                console.warn("Auth: Role fetch error", empError);
+            }
+
             // Redirect based on role
-            // Default to staff dashboard if no role found (safety)
-            if (emp?.role === 'Staff') {
-                router.push("/staff/dashboard");
+            const role = emp?.role || 'Staff';
+            const adminRoles = ['Admin', 'Superadmin', 'Administration'];
+            
+            if (adminRoles.includes(role)) {
+                console.log("Auth: Admin role detected, redirecting to admin dashboard");
+                window.location.href = "/dashboard";
             } else {
-                // Admin or Superadmin
-                router.push("/dashboard");
+                console.log("Auth: Staff role detected, redirecting to staff dashboard");
+                window.location.href = "/staff/dashboard";
             }
         }
-        router.refresh();
     } catch (err: any) {
-        setError(err.message);
+        console.error("Auth: Exception caught", err);
+        setError(err.message || "Login failed. Please check your credentials and try again.");
+    } finally {
         setIsLoading(false);
     }
   };
@@ -143,6 +159,22 @@ export default function StaffLoginPage() {
                     )}
                   </Button>
               </div>
+              
+              {/* Error Message Display */}
+              {error && (
+                <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-red-800 font-medium">Login Failed</p>
+                    <p className="text-xs text-red-600 mt-1">{error}</p>
+                    {error.includes('Email not confirmed') && (
+                      <p className="text-xs text-red-600 mt-2">
+                        Please check your email for the confirmation link, or contact admin to confirm your account.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
               
                <div className="text-center space-y-2 mt-6">
                   <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />

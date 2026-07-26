@@ -1,7 +1,11 @@
-
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+/**
+ * Updates (refreshes) the Supabase session cookie.
+ * Call this from your root middleware.ts to keep sessions alive.
+ * This MUST be called before any route logic that reads the session.
+ */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -16,7 +20,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
           supabaseResponse = NextResponse.next({
@@ -30,11 +34,9 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh session if expired - required for Server Components
-  // https://supabase.com/docs/guides/auth/server-side/nextjs
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // IMPORTANT: This refreshes the session and must not be removed.
+  // It does NOT protect routes — protection is done in middleware.ts.
+  await supabase.auth.getUser()
 
   return supabaseResponse
 }

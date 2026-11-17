@@ -1,0 +1,22 @@
+{
+  "builds": [
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(?:|index\\.html|auth/login|auth/admin-login|dashboard|staff/dashboard|kiosk)/?",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "dest": "/index.html",
+      "headers": {
+        "cache-control": "no-store",
+        "x-robots-tag": "noindex"
+      }
+    }
+  ]
+}
